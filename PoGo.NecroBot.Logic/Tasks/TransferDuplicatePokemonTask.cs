@@ -18,11 +18,8 @@ namespace PoGo.NecroBot.Logic.Tasks
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Padding the TransferEvent with player-choosen delay before instead of after.
-            // This is to remedy too quick transfers, often happening within a second of the
-            // previous action otherwise
-
-            DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 0);
+            if (session.LogicSettings.AutoFavoritePokemon)
+                await FavoritePokemonTask.Execute(session, cancellationToken);
 
             await session.Inventory.RefreshCachedInventory();
             var duplicatePokemons =
@@ -64,6 +61,11 @@ namespace PoGo.NecroBot.Logic.Tasks
                     FamilyCandies = family.Candy_
                 });
 
+                // Padding the TransferEvent with player-choosen delay before instead of after.
+                // This is to remedy too quick transfers, often happening within a second of the
+                // previous action otherwise
+
+                DelayingUtils.Delay(session.LogicSettings.TransferActionDelay, 0);
             }
         }
     }

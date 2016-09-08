@@ -81,8 +81,8 @@ namespace PoGo.NecroBot.Logic.Tasks
                 pokestopList =
                     pokestopList.OrderBy(
                         i =>
-                            LocationUtils.CalculateDistanceInMeters(session.Client.CurrentLatitude,
-                                session.Client.CurrentLongitude, i.Latitude, i.Longitude)).ToList();
+                            session.Navigation.WalkStrategy.CalculateDistance(
+                                session.Client.CurrentLatitude, session.Client.CurrentLongitude, i.Latitude, i.Longitude, session)).ToList();
 
                 // randomize next pokestop between first and second by distance
                 var pokestopListNum = 0;
@@ -102,6 +102,10 @@ namespace PoGo.NecroBot.Logic.Tasks
                 // also, GPX pathing uses its own EggWalker and calls the CatchPokemon tasks internally.
                 if (!session.LogicSettings.UseGpxPathing)
                 {
+
+                    // Will modify Lat,Lng and Name to fake position
+                    SetMoveToTargetTask.CheckSetMoveToTargetStatus(ref fortInfo, ref pokeStop); 
+
                     var eggWalker = new EggWalker(1000, session);
 
                     var distance = LocationUtils.CalculateDistanceInMeters(session.Client.CurrentLatitude,
@@ -117,6 +121,8 @@ namespace PoGo.NecroBot.Logic.Tasks
                         LocationUtils.getElevation(session, pokeStop.Latitude, pokeStop.Longitude)),
                     async () =>
                     {
+                        if (SetMoveToTargetTask.CheckStopforSetMoveToTarget())
+                            return false;
                         // Catch normal map Pokemon
                         await CatchNearbyPokemonsTask.Execute(session, cancellationToken);
                         //Catch Incense Pokemon
@@ -131,7 +137,9 @@ namespace PoGo.NecroBot.Logic.Tasks
                     // we have moved this distance, so apply it immediately to the egg walker.
                     await eggWalker.ApplyDistance(distance, cancellationToken);
                 }
-
+                if (SetMoveToTargetTask.CheckReachTarget(session))
+                    return;
+            		
                 await FortAction(session, pokeStop, fortInfo, cancellationToken);
 
                 if (session.LogicSettings.SnipeAtPokestops || session.LogicSettings.UseSnipeLocationServer)
@@ -159,7 +167,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                                     pokestopList.Remove(ps);
                                 var fi = await session.Client.Fort.GetFort(ps.Id, ps.Latitude, ps.Longitude);
                                 await FarmPokestop(session, ps, fi, cancellationToken, true);
-                                await Task.Delay(1000);
+                                await Task.Delay(2000);
                             }
                         },
                         async () =>
@@ -285,8 +293,6 @@ namespace PoGo.NecroBot.Logic.Tasks
                         await TransferWeakPokemonTask.Execute(session, cancellationToken);
                     if (session.LogicSettings.RenamePokemon)
                         await RenamePokemonTask.Execute(session, cancellationToken);
-                    if (session.LogicSettings.AutoFavoritePokemon)
-                        await FavoritePokemonTask.Execute(session, cancellationToken);
                     if (session.LogicSettings.AutomaticallyLevelUpPokemon)
                         await LevelUpPokemonTask.Execute(session, cancellationToken);
 
@@ -385,7 +391,7 @@ namespace PoGo.NecroBot.Logic.Tasks
             } while (fortTry < retryNumber - zeroCheck);
             //Stop trying if softban is cleaned earlier or if 40 times fort looting failed.
 
-            if (session.LogicSettings.RandomlyPauseAtStops)
+            if (session.LogicSettings.RandomlyPauseAtStops && !doNotRetry)
             {
                 if (++RandomStop >= RandomNumber)
                 {

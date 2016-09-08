@@ -56,6 +56,7 @@ namespace PoGo.NecroBot.Logic.Tasks
             FortData currentFortData = null, ulong encounterId = 0, bool sessionAllowTransfer =true)
         {
             AmountOfBerries = 0;
+			
             cancellationToken.ThrowIfCancellationRequested();
 
             // If the encounter is null nothing will work below, so exit now
@@ -125,8 +126,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                     AmountOfBerries++;
                     if (AmountOfBerries <= session.LogicSettings.MaxBerriesToUsePerPokemon)
                     {
-                        await
-                       UseBerry(session,
+                        await UseBerry(session,
                            encounter is EncounterResponse || encounter is IncenseEncounterResponse
                                ? pokemon.EncounterId
                                : encounterId,
@@ -137,6 +137,8 @@ namespace PoGo.NecroBot.Logic.Tasks
 
                 }
 
+				bool hitPokemon = true;
+				
                 //default to excellent throw
                 var normalizedRecticleSize = 1.95;
                 //default spin
@@ -194,13 +196,16 @@ namespace PoGo.NecroBot.Logic.Tasks
                     //round to 2 decimals
                     normalizedRecticleSize = Math.Round(normalizedRecticleSize, 2);
 
-                    Logger.Write($"(Threw ball) {hitTxt} hit. {spinTxt}-ball...", LogLevel.Debug);
+					// Missed throw check
+					int missChance = Random.Next(1, 101);
+					if (missChance <= session.LogicSettings.ThrowMissPercentage && session.LogicSettings.EnableMissedThrows)
+					{
+						hitPokemon = false;	
+					}
+                    
+                    Logger.Write($"(Threw ball) {hitTxt} throw, {spinTxt}-ball, HitPokemon = {hitPokemon}...", LogLevel.Debug);		
                 }
 
-                int missChance = Random.Next(0, 101);
-                bool hitPokemon = true;
-                if (missChance <= session.LogicSettings.ThrowMissPercentage && session.LogicSettings.EnableMissedThrows && session.LogicSettings.EnableHumanizedThrows)
-                    hitPokemon = false;
                 caughtPokemonResponse =
                     await session.Client.Encounter.CatchPokemon(
                         encounter is EncounterResponse || encounter is IncenseEncounterResponse
@@ -246,8 +251,7 @@ namespace PoGo.NecroBot.Logic.Tasks
 
                     if (family != null)
                     {
-                        family.Candy_ += caughtPokemonResponse.CaptureAward.Candy.Sum();
-
+                        family.Candy_ += caughtPokemonResponse.CaptureAward.Candy.Sum();		
                         evt.FamilyCandies = family.Candy_;
                     }
                     else
@@ -312,10 +316,12 @@ namespace PoGo.NecroBot.Logic.Tasks
                 evt.Attempt = attemptCounter;
                 await session.Inventory.RefreshCachedInventory();
                 evt.BallAmount = await session.Inventory.GetItemAmountByType(pokeball);
-
+                evt.Rarity = PokemonGradeHelper.GetPokemonGrade(evt.Id).ToString();
                 session.EventDispatcher.Send(evt);
 
                 attemptCounter++;
+
+                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 0);
 
                 if (session.LogicSettings.TransferDuplicatePokemonOnCapture && session.LogicSettings.TransferDuplicatePokemon &&
                     sessionAllowTransfer && caughtPokemonResponse.Status == CatchPokemonResponse.Types.CatchStatus.CatchSuccess)
@@ -325,8 +331,6 @@ namespace PoGo.NecroBot.Logic.Tasks
                     else
                         await TransferDuplicatePokemonTask.Execute(session, cancellationToken);
                 }
-
-                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPokemonCatch, 0);
             } while (caughtPokemonResponse.Status == CatchPokemonResponse.Types.CatchStatus.CatchMissed ||
                      caughtPokemonResponse.Status == CatchPokemonResponse.Types.CatchStatus.CatchEscape);
         }
@@ -387,6 +391,8 @@ namespace PoGo.NecroBot.Logic.Tasks
 
             if (berry == null || berry.Count <= 0)
                 return;
+
+            DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
 
             var useCaptureItem = await session.Client.Encounter.UseCaptureItem(encounterId, ItemId.ItemRazzBerry, spawnPointId);
             berry.Count -= 1;

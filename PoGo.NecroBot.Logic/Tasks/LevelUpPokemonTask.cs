@@ -16,7 +16,7 @@ using POGOProtos.Settings.Master;
 
 namespace PoGo.NecroBot.Logic.Tasks
 {
-    internal class LevelUpPokemonTask
+    public class LevelUpPokemonTask
     {
         public static List<PokemonData> Upgrade = new List<PokemonData>();
         private static IEnumerable<PokemonData> upgradablePokemon;
@@ -97,8 +97,31 @@ namespace PoGo.NecroBot.Logic.Tasks
                 }
                 else
                 {
-                    await UpgradeSinglePokemon(session, pokemon, pokemonFamilies, pokemonSettings); ;
+                    await UpgradeSinglePokemon(session, pokemon, pokemonFamilies, pokemonSettings);
                     await Task.Delay(session.LogicSettings.DelayBetweenPlayerActions);
+                }
+            }
+        }
+
+        public static async Task Execute(ISession session, ulong pokemonId)
+        {
+            var all = await session.Inventory.GetPokemons();
+            var pokemon = all.FirstOrDefault(p => p.Id == pokemonId);
+
+            if (PokemonInfo.GetLevel(pokemon) >= session.Inventory.GetPlayerStats().Result.FirstOrDefault().Level + 1)
+                return;
+
+            if (pokemon != null)
+            {
+                var upgradeResult = await session.Inventory.UpgradePokemon(pokemon.Id);
+
+                if (upgradeResult.Result.ToString().ToLower().Contains("success"))
+                {
+                    session.EventDispatcher.Send(new UpgradePokemonEvent()
+                    {
+                        Id = upgradeResult.UpgradedPokemon.PokemonId,
+                        Cp = upgradeResult.UpgradedPokemon.Cp
+                    });
                 }
             }
         }

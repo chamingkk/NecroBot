@@ -1,7 +1,6 @@
 ﻿using Caching;
-using GeoCoordinatePortable;
 using Newtonsoft.Json;
-using PoGo.NecroBot.Logic.State;
+using PoGo.NecroBot.Logic.Model.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,10 +23,15 @@ namespace PoGo.NecroBot.Logic.Service.Elevation
     {
         private string mapQuestDemoApiKey = $"Kmjtd|luua2qu7n9,7a=o5-lzbgq";
 
-        public MapQuestElevationService(ISession session, LRUCache<string, double> cache) : base(session, cache)
+        public MapQuestElevationService(GlobalSettings settings, LRUCache<string, double> cache) : base(settings, cache)
         {
             if (!string.IsNullOrEmpty(mapQuestDemoApiKey))
                 _apiKey = mapQuestDemoApiKey;
+        }
+
+        public override string GetServiceId()
+        {
+            return "MapQuest Elevation Service";
         }
 
         public override double GetElevationFromWebService(double lat, double lng)
@@ -55,10 +59,14 @@ namespace PoGo.NecroBot.Logic.Service.Elevation
                         responseFromServer = responseFromServer.Replace("handleHelloWorldResponse(", "");
                         responseFromServer = responseFromServer.Replace("]}});", "]}}");
                         MapQuestResponse mapQuestResponse = JsonConvert.DeserializeObject<MapQuestResponse>(responseFromServer);
-                        if (mapQuestResponse.elevationProfile != null && 0 < mapQuestResponse.elevationProfile.Count)
+                        if (mapQuestResponse.elevationProfile != null && 
+                            mapQuestResponse.elevationProfile.Count > 0 &&
+                            mapQuestResponse.elevationProfile[0].height > -100)
                         {
                             return mapQuestResponse.elevationProfile[0].height;
                         }
+
+                        // All error handling is handled inside of the ElevationService.
                     }
                 }
             }

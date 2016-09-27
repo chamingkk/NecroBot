@@ -1,3 +1,5 @@
+#region using directives
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -16,6 +18,9 @@ using PoGo.NecroBot.Logic.Logging;
 using PoGo.NecroBot.Logic.State;
 using PokemonGo.RocketAPI.Enums;
 using POGOProtos.Enums;
+using PoGo.NecroBot.Logic.Service.Elevation;
+
+#endregion
 
 namespace PoGo.NecroBot.Logic.Model.Settings
 {
@@ -56,7 +61,14 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public HumanWalkSnipeConfig HumanWalkSnipeConfig = new HumanWalkSnipeConfig();
 
         [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public DataSharingConfig DataSharingConfig = new DataSharingConfig();
+
+
+        [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public PokeStopConfig PokeStopConfig = new PokeStopConfig();
+
+        [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public GymConfig GymConfig = new GymConfig();
 
         [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public PokemonConfig PokemonConfig = new PokemonConfig();
@@ -78,6 +90,9 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public YoursWalkConfig YoursWalkConfig = new YoursWalkConfig();
+
+        [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public MapzenWalkConfig MapzenWalkConfig = new MapzenWalkConfig();
 
         [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<ItemRecycleFilter> ItemRecycleFilter = Settings.ItemRecycleFilter.ItemRecycleFilterDefault();
@@ -106,6 +121,9 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public Dictionary<PokemonId, HumanWalkSnipeFilter> HumanWalkSnipeFilters = HumanWalkSnipeFilter.Default();
 
+        [JsonProperty(Required = Required.DisallowNull, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public Dictionary<PokemonId, UpgradeFilter> PokemonUpgradeFilters = UpgradeFilter.Default();
+
         public GlobalSettings()
         {
             InitializePropertyDefaultValues(this);
@@ -113,9 +131,9 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         public void InitializePropertyDefaultValues(object obj)
         {
-            FieldInfo[] fields = obj.GetType().GetFields();
+            var fields = obj.GetType().GetFields();
 
-            foreach (FieldInfo field in fields)
+            foreach (var field in fields)
             {
                 var d = field.GetCustomAttribute<DefaultValueAttribute>();
 
@@ -126,9 +144,8 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         public static GlobalSettings Default => new GlobalSettings();
 
-        public Dictionary<PokemonId, UpgradeFilter> PokemonUpgradeFilters = UpgradeFilter.Default();
-
         private static JSchema _schema;
+
         private static JSchema JsonSchema
         {
             get
@@ -150,7 +167,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                     SchemaReferenceHandling = SchemaReferenceHandling.None
                 };
                 // change Zone enum to generate a string property
-                var strEnumGen = new StringEnumGenerationProvider { CamelCaseText = true };
+                var strEnumGen = new StringEnumGenerationProvider {CamelCaseText = true};
                 generator.GenerationProviders.Add(strEnumGen);
                 // generate json schema 
                 var type = typeof(GlobalSettings);
@@ -197,7 +214,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         //    }
         //}
 
-        public static GlobalSettings Load(string path, bool boolSkipSave = false, bool validate = true)
+        public static GlobalSettings Load(string path, bool boolSkipSave = false, bool validate = false)
         {
             GlobalSettings settings;
             var profilePath = Path.Combine(Directory.GetCurrentDirectory(), path);
@@ -211,7 +228,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                 {
                     //if the file exists, load the settings
                     string input;
-                    int count = 0;
+                    var count = 0;
                     while (true)
                     {
                         try
@@ -235,7 +252,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                     }
 
                     var jsonSettings = new JsonSerializerSettings();
-                    jsonSettings.Converters.Add(new StringEnumConverter { CamelCaseText = true });
+                    jsonSettings.Converters.Add(new StringEnumConverter {CamelCaseText = true});
                     jsonSettings.ObjectCreationHandling = ObjectCreationHandling.Replace;
                     jsonSettings.DefaultValueHandling = DefaultValueHandling.Populate;
 
@@ -246,18 +263,39 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                         {
                             Logger.Write("Validating config.json...");
                             var jsonObj = JObject.Parse(input);
-                            IList<ValidationError> errors;
-                            var valid = jsonObj.IsValid(JsonSchema, out errors);
-                            if (!valid)
+                            IList<ValidationError> errors = null;
+                            bool valid;
+                            try
                             {
-                                foreach (var error in errors)
+                                valid = jsonObj.IsValid(JsonSchema, out errors);
+                            }
+                            catch (JSchemaException ex)
+                            {
+                                if (ex.Message.Contains("commercial licence") || ex.Message.Contains("free-quota"))
                                 {
                                     Logger.Write(
-                                        "config.json [Line: " + error.LineNumber + ", Position: " + error.LinePosition + "]: " +
-                                        error.Path + " " +
-                                        error.Message, LogLevel.Error);
+                                        "config.json: " + ex.Message);
+                                    valid = false;
                                 }
-                                Logger.Write("Fix config.json and restart NecroBot or press a key to ignore and continue...",
+                                else
+                                {
+                                    throw;
+                                }
+                            }
+                            if (!valid)
+                            {
+                                if (errors != null)
+                                    foreach (var error in errors)
+                                    {
+                                        Logger.Write(
+                                            "config.json [Line: " + error.LineNumber + ", Position: " + error.LinePosition +
+                                            "]: " +
+                                            error.Path + " " +
+                                            error.Message, LogLevel.Error);
+                                    }
+
+                                Logger.Write(
+                                    "Fix config.json and restart NecroBot or press a key to ignore and continue...",
                                     LogLevel.Warning);
                                 Console.ReadKey();
                             }
@@ -283,8 +321,8 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                     }
                     foreach (var filter in settings.PokemonsTransferFilter.Where(x => x.Value.Moves == null))
                     {
-                        filter.Value.Moves = (filter.Value.DeprecatedMoves != null)
-                            ? new List<List<PokemonMove>> { filter.Value.DeprecatedMoves }
+                        filter.Value.Moves = filter.Value.DeprecatedMoves != null
+                            ? new List<List<PokemonMove>> {filter.Value.DeprecatedMoves}
                             : filter.Value.Moves ?? new List<List<PokemonMove>>();
                     }
                     foreach (var filter in settings.PokemonsTransferFilter.Where(x => x.Value.MovesOperator == null))
@@ -317,36 +355,23 @@ namespace PoGo.NecroBot.Logic.Model.Settings
             return shouldExit ? null : settings;
         }
 
-        public void checkProxy(ITranslation translator)
+        public void CheckProxy(ITranslation translator)
         {
-            Auth.checkProxy(translator);
+            Auth.CheckProxy(translator);
         }
 
         public static bool PromptForSetup(ITranslation translator)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartPrompt, "Y", "N"), LogLevel.Warning);
+            bool promptForSetup = PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartPrompt, "Y", "N"));
+            if (!promptForSetup)
+                Logger.Write(translator.GetTranslation(TranslationString.FirstStartAutoGenSettings));
 
-            while (true)
-            {
-                string strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        return true;
-                    case "n":
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartAutoGenSettings));
-                        return false;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "Y", "N"), LogLevel.Error);
-                        continue;
-                }
-            }
+            return promptForSetup;
         }
 
-        public static Session SetupSettings(Session session, GlobalSettings settings, String configPath)
+        public static Session SetupSettings(Session session, GlobalSettings settings, IElevationService elevationService, string configPath)
         {
-            Session newSession = SetupTranslationCode(session, session.Translation, settings);
+            var newSession = SetupTranslationCode(session, elevationService, session.Translation, settings);
 
             SetupAccountType(newSession.Translation, settings);
             SetupUserAccount(newSession.Translation, settings);
@@ -363,34 +388,15 @@ namespace PoGo.NecroBot.Logic.Model.Settings
             return newSession;
         }
 
-        private static Session SetupTranslationCode(Session session, ITranslation translator, GlobalSettings settings)
+        private static Session SetupTranslationCode(Session session, IElevationService elevationService, ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartLanguagePrompt, "Y", "N"), LogLevel.None);
-            string strInput;
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartLanguagePrompt, "Y", "N")))
+                return session;
 
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return session;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
-
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartLanguageCodePrompt));
-            strInput = Console.ReadLine();
+            string strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartLanguageCodePrompt));
 
             settings.ConsoleConfig.TranslationLanguageCode = strInput;
-            session = new Session(new ClientSettings(settings), new LogicSettings(settings));
+            session = new Session(new ClientSettings(settings, elevationService), new LogicSettings(settings), elevationService);
             translator = session.Translation;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartLanguageConfirm, strInput));
 
@@ -399,278 +405,130 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         private static void SetupProxyConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyPrompt, "Y", "N"), LogLevel.None);
-            string strInput;
-
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
-
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyPrompt, "Y", "N")))
+                return;
+            
             settings.Auth.ProxyConfig.UseProxy = true;
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyHostPrompt));
-            strInput = Console.ReadLine();
+            string strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyHostPrompt));
             settings.Auth.ProxyConfig.UseProxyHost = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyHostConfirm, strInput));
-
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyPortPrompt));
-            strInput = Console.ReadLine();
+            
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyPortPrompt));
             settings.Auth.ProxyConfig.UseProxyPort = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyPortConfirm, strInput));
-
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyAuthPrompt, "Y", "N"), LogLevel.None);
-
-            boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
-
+            
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyAuthPrompt, "Y", "N")))
+                return;
+            
             settings.Auth.ProxyConfig.UseProxyAuthentication = true;
-
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyUsernamePrompt));
-            strInput = Console.ReadLine();
+            
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyUsernamePrompt));
             settings.Auth.ProxyConfig.UseProxyUsername = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyUsernameConfirm, strInput));
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyPasswordPrompt));
-            strInput = Console.ReadLine();
+
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupProxyPasswordPrompt));
             settings.Auth.ProxyConfig.UseProxyPassword = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupProxyPasswordConfirm, strInput));
         }
-
+        
         private static void SetupWalkingConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedPrompt, "Y", "N"), LogLevel.None);
-            string strInput;
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedPrompt, "Y", "N")))
+                return;
 
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
+            settings.LocationConfig.WalkingSpeedInKilometerPerHour = PromptForDouble(translator, translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedKmHPrompt));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedKmHConfirm, settings.LocationConfig.WalkingSpeedInKilometerPerHour.ToString()));
 
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
+            settings.LocationConfig.UseWalkingSpeedVariant = PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupUseWalkingSpeedVariantPrompt, "Y", "N"));
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedKmHPrompt));
-            strInput = Console.ReadLine();
-            settings.LocationConfig.WalkingSpeedInKilometerPerHour = Double.Parse(strInput);
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedKmHConfirm, strInput));
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupUseWalkingSpeedVariantPrompt, "Y", "N"), LogLevel.None);
-
-            boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        settings.LocationConfig.UseWalkingSpeedVariant = true;
-                        break;
-                    case "n":
-                        settings.LocationConfig.UseWalkingSpeedVariant = false;
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
-
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedVariantPrompt));
-            strInput = Console.ReadLine();
-            settings.LocationConfig.WalkingSpeedVariant = Double.Parse(strInput);
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedVariantConfirm, strInput));
-
+            settings.LocationConfig.WalkingSpeedVariant = PromptForDouble(translator, translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedVariantPrompt));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWalkingSpeedVariantConfirm, settings.LocationConfig.WalkingSpeedVariant.ToString()));
         }
 
         private static void SetupAutoCompleteTutConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutPrompt, "Y", "N"), LogLevel.None);
-            string strInput;
-
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutPrompt, "Y", "N")))
+                return;
 
             settings.PlayerConfig.AutoCompleteTutorial = true;
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutNicknamePrompt));
-            strInput = Console.ReadLine();
+            string strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutNicknamePrompt));
             settings.PlayerConfig.DesiredNickname = strInput;
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutNicknameConfirm, strInput));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutNicknameConfirm,
+                strInput));
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutGenderPrompt));
-            strInput = Console.ReadLine();
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutGenderPrompt));
             settings.PlayerConfig.DesiredGender = strInput;
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutGenderConfirm, strInput));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutGenderConfirm,
+                strInput));
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutStarterPrompt));
-            strInput = Console.ReadLine();
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutStarterPrompt));
             settings.PlayerConfig.DesiredStarter = strInput;
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutStarterConfirm, strInput));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAutoCompleteTutStarterConfirm,
+                strInput));
         }
 
         private static void SetupWebSocketConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPrompt, "Y", "N"), LogLevel.None);
-            string strInput;
-
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
-
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPrompt, "Y", "N")))
+                return;
+            
             settings.WebsocketsConfig.UseWebsocket = true;
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPortPrompt));
-            strInput = Console.ReadLine();
-            settings.WebsocketsConfig.WebSocketPort = int.Parse(strInput);
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPortConfirm, strInput));
+            settings.WebsocketsConfig.WebSocketPort = PromptForInteger(translator, translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPortPrompt));
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupWebSocketPortConfirm, settings.WebsocketsConfig.WebSocketPort.ToString()));
         }
 
         private static void SetupTelegramConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTelegramPrompt, "Y", "N"), LogLevel.None);
-            string strInput;
-
-            bool boolBreak = false;
-            while (!boolBreak)
-            {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
-            }
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartSetupTelegramPrompt, "Y", "N")))
+                return;
 
             settings.TelegramConfig.UseTelegramAPI = true;
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTelegramCodePrompt));
-            strInput = Console.ReadLine();
+            string strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupTelegramCodePrompt));
             settings.TelegramConfig.TelegramAPIKey = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTelegramCodeConfirm, strInput));
 
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTelegramPasswordPrompt));
-            strInput = Console.ReadLine();
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupTelegramPasswordPrompt));
             settings.TelegramConfig.TelegramPassword = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTelegramPasswordConfirm, strInput));
         }
 
         private static void SetupAccountType(ITranslation translator, GlobalSettings settings)
         {
-            string strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupAccount), LogLevel.None);
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTypePrompt, "google", "ptc"));
 
-            while (true)
+            string accountType = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupTypePrompt, "google", "ptc"), new string[] { "google", "ptc" }, translator.GetTranslation(TranslationString.FirstStartSetupTypePromptError, "google", "ptc"), false);
+            
+            switch (accountType)
             {
-                strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "google":
-                        settings.Auth.AuthConfig.AuthType = AuthType.Google;
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTypeConfirm, "GOOGLE"));
-                        return;
-                    case "ptc":
-                        settings.Auth.AuthConfig.AuthType = AuthType.Ptc;
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTypeConfirm, "PTC"));
-                        return;
-                    default:
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTypePromptError, "google", "ptc"), LogLevel.Error);
-                        break;
-                }
+                case "google":
+                    settings.Auth.AuthConfig.AuthType = AuthType.Google;
+                    break;
+                case "ptc":
+                    settings.Auth.AuthConfig.AuthType = AuthType.Ptc;
+                    break;
             }
+
+            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupTypeConfirm, accountType.ToUpper()));
         }
 
         private static void SetupUserAccount(ITranslation translator, GlobalSettings settings)
         {
-            Console.WriteLine("");
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupUsernamePrompt), LogLevel.None);
-            string strInput = Console.ReadLine();
-
+            Logger.Write("", LogLevel.Info);
+            var strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupUsernamePrompt));
+            
             if (settings.Auth.AuthConfig.AuthType == AuthType.Google)
                 settings.Auth.AuthConfig.GoogleUsername = strInput;
             else
                 settings.Auth.AuthConfig.PtcUsername = strInput;
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupUsernameConfirm, strInput));
 
-            Console.WriteLine("");
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupPasswordPrompt), LogLevel.None);
-            strInput = Console.ReadLine();
-
+            Logger.Write("", LogLevel.Info);
+            strInput = PromptForString(translator, translator.GetTranslation(TranslationString.FirstStartSetupPasswordPrompt));
+            
             if (settings.Auth.AuthConfig.AuthType == AuthType.Google)
                 settings.Auth.AuthConfig.GooglePassword = strInput;
             else
@@ -682,50 +540,37 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         private static void SetupConfig(ITranslation translator, GlobalSettings settings)
         {
-            Logger.Write(translator.GetTranslation(TranslationString.FirstStartDefaultLocationPrompt, "Y", "N"), LogLevel.None);
-
-            bool boolBreak = false;
-            while (!boolBreak)
+            if (false == PromptForBoolean(translator, translator.GetTranslation(TranslationString.FirstStartDefaultLocationPrompt, "Y", "N")))
             {
-                string strInput = Console.ReadLine().ToLower();
-
-                switch (strInput)
-                {
-                    case "y":
-                        boolBreak = true;
-                        break;
-                    case "n":
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartDefaultLocationSet));
-                        return;
-                    default:
-                        // PROMPT ERROR \\
-                        Logger.Write(translator.GetTranslation(TranslationString.PromptError, "y", "n"), LogLevel.Error);
-                        continue;
-                }
+                Logger.Write(translator.GetTranslation(TranslationString.FirstStartDefaultLocationSet));
+                return;
             }
-
+            
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartDefaultLocation), LogLevel.None);
             Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLatLongPrompt));
             while (true)
             {
                 try
                 {
-                    string strInput = Console.ReadLine();
-                    string[] strSplit = strInput.Split(',');
+                    var strInput = Console.ReadLine();
+                    var strSplit = strInput.Split(',');
 
                     if (strSplit.Length > 1)
                     {
-                        double dblLat = double.Parse(strSplit[0].Trim(' '));
-                        double dblLong = double.Parse(strSplit[1].Trim(' '));
+                        var dblLat = double.Parse(strSplit[0].Trim(' '));
+                        var dblLong = double.Parse(strSplit[1].Trim(' '));
 
                         settings.LocationConfig.DefaultLatitude = dblLat;
                         settings.LocationConfig.DefaultLongitude = dblLong;
 
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLatLongConfirm, $"{dblLat}, {dblLong}"));
+                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLatLongConfirm,
+                            $"{dblLat}, {dblLong}"));
                     }
                     else
                     {
-                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLocationError, $"{settings.LocationConfig.DefaultLatitude}, {settings.LocationConfig.DefaultLongitude}", LogLevel.Error));
+                        Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLocationError,
+                            $"{settings.LocationConfig.DefaultLatitude}, {settings.LocationConfig.DefaultLongitude}",
+                            LogLevel.Error));
                         continue;
                     }
 
@@ -733,12 +578,14 @@ namespace PoGo.NecroBot.Logic.Model.Settings
                 }
                 catch (FormatException)
                 {
-                    Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLocationError, $"{settings.LocationConfig.DefaultLatitude}, {settings.LocationConfig.DefaultLongitude}", LogLevel.Error));
+                    Logger.Write(translator.GetTranslation(TranslationString.FirstStartSetupDefaultLocationError,
+                        $"{settings.LocationConfig.DefaultLatitude}, {settings.LocationConfig.DefaultLongitude}",
+                        LogLevel.Error));
                 }
             }
         }
 
-        private static void SaveFiles(GlobalSettings settings, String configFile)
+        private static void SaveFiles(GlobalSettings settings, string configFile)
         {
             settings.Save(configFile);
             settings.Auth.Load(Path.Combine(settings.ProfileConfigPath, "auth.json"));
@@ -747,7 +594,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public void Save(string fullPath, bool validate = false)
         {
             var output = JsonConvert.SerializeObject(this, Formatting.Indented,
-                new StringEnumConverter { CamelCaseText = true });
+                new StringEnumConverter {CamelCaseText = true});
 
             var folder = Path.GetDirectoryName(fullPath);
             if (folder != null && !Directory.Exists(folder))
@@ -771,12 +618,114 @@ namespace PoGo.NecroBot.Logic.Model.Settings
             foreach (var error in errors)
             {
                 Logger.Write(
-                    "config.json [Line: " + error.LineNumber + ", Position: " + error.LinePosition + "]: " + error.Path + " " +
+                    "config.json [Line: " + error.LineNumber + ", Position: " + error.LinePosition + "]: " + error.Path +
+                    " " +
                     error.Message, LogLevel.Error);
                 //"Default value is '" + error.Schema.Default + "'"
             }
-            Logger.Write("Fix config.json and restart NecroBot or press a key to ignore and continue...", LogLevel.Warning);
+            Logger.Write("Fix config.json and restart NecroBot or press a key to ignore and continue...",
+                LogLevel.Warning);
             Console.ReadKey();
+        }
+
+        private static bool PromptForBoolean(ITranslation translator, string initialPrompt, string errorPrompt = null)
+        {
+            Logger.Write(initialPrompt, LogLevel.None);
+            while (true)
+            {
+                var strInput = Console.ReadLine().ToLower();
+
+                switch (strInput)
+                {
+                    case "y":
+                        return true;
+                    case "n":
+                        return false;
+                    default:
+                        if (string.IsNullOrEmpty(errorPrompt))
+                            errorPrompt = translator.GetTranslation(TranslationString.PromptError, "y", "n");
+
+                        Logger.Write(errorPrompt, LogLevel.Error);
+                        continue;
+                }
+            }
+        }
+
+        private static double PromptForDouble(ITranslation translator, string initialPrompt, string errorPrompt = null)
+        {
+            Logger.Write(initialPrompt, LogLevel.None);
+            while (true)
+            {
+                var strInput = Console.ReadLine();
+
+                double doubleVal;
+                if (double.TryParse(strInput, out doubleVal))
+                {
+                    return doubleVal;
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(errorPrompt))
+                        errorPrompt = translator.GetTranslation(TranslationString.PromptErrorDouble);
+
+                    Logger.Write(errorPrompt, LogLevel.Error);
+                }
+            }
+        }
+
+        private static int PromptForInteger(ITranslation translator, string initialPrompt, string errorPrompt = null)
+        {
+            Logger.Write(initialPrompt, LogLevel.None);
+            while (true)
+            {
+                var strInput = Console.ReadLine();
+
+                int intVal;
+                if (int.TryParse(strInput, out intVal))
+                {
+                    return intVal;
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(errorPrompt))
+                        errorPrompt = translator.GetTranslation(TranslationString.PromptErrorInteger);
+
+                    Logger.Write(errorPrompt, LogLevel.Error);
+                }
+            }
+        }
+
+        private static string PromptForString(ITranslation translator, string initialPrompt, string[] validStrings = null, string errorPrompt = null, bool caseSensitive = true)
+        {
+            Logger.Write(initialPrompt, LogLevel.None);
+
+            while (true)
+            {
+                // For now this just reads from the console, but in the future, we may change this to read from the GUI.
+                string strInput = Console.ReadLine();
+
+                if (!caseSensitive)
+                    strInput = strInput.ToLower();
+
+                // If no valid strings to validate, then return immediately.
+                if (validStrings == null)
+                    return strInput;
+
+                // Validate string
+                foreach (string validString in validStrings)
+                {
+                    if (String.Equals(strInput, validString, caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))
+                        return strInput;
+                }
+
+                // If we got here, no valid strings.
+                if (string.IsNullOrEmpty(errorPrompt))
+                {
+                    errorPrompt = translator.GetTranslation(TranslationString.PromptErrorString, string.Join(",", validStrings));
+                }
+                Logger.Write(errorPrompt, LogLevel.Error);
+            }
+
         }
     }
 }

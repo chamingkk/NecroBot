@@ -18,6 +18,12 @@ namespace PoGo.NecroBot.Logic.Logging
         private static string _lastLogMessage;
         private static bool _isGui;
 
+        public static void TurnOffLogBuffering()
+        {
+            if (_logger != null)
+                _logger.TurnOffLogBuffering();
+        }
+
         private static void Log(string message, bool force = false)
         {
             lock (LogbufferList)
@@ -30,7 +36,7 @@ namespace PoGo.NecroBot.Logic.Logging
                 using (
                     var log =
                         File.AppendText(Path.Combine(_path,
-                            $"NecroBot-{DateTime.Today.ToString("yyyy-MM-dd")}-{DateTime.Now.ToString("HH")}.txt"))
+                            $"NecroBot2-{DateTime.Today.ToString("yyyy-MM-dd")}-{DateTime.Now.ToString("HH")}.txt"))
                     )
                 {
                     foreach (var line in LogbufferList)
@@ -58,7 +64,7 @@ namespace PoGo.NecroBot.Logic.Logging
             {
                 _path = Path.Combine(Directory.GetCurrentDirectory(), subPath, "Logs");
                 Directory.CreateDirectory(_path);
-                Log($"Initializing NecroBot logger at time {DateTime.Now}...");
+                Log($"Initializing NecroBot2 logger at time {DateTime.Now}...");
             }
         }
 
@@ -81,6 +87,7 @@ namespace PoGo.NecroBot.Logic.Logging
         {
             if (_logger == null || _lastLogMessage == message)
                 return;
+
             _lastLogMessage = message;
             _logger.Write(message, level, color);
 
@@ -94,10 +101,10 @@ namespace PoGo.NecroBot.Logic.Logging
                 {
                     Log(string.Concat($"[{DateTime.Now.ToString("HH:mm:ss")}] ", message), force);
                 }
-                
+
 
             }
-                
+
         }
 
         public static void lineSelect(int lineChar = 0, int linesUp = 1)
@@ -126,6 +133,8 @@ namespace PoGo.NecroBot.Logic.Logging
         New = 15,
         SoftBan = 16,
         LevelUp = 17,
-        Debug = 18,
+        Gym = 18,
+        Service = 19,
+        Debug = 20,
     }
 }

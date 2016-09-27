@@ -1,7 +1,6 @@
 ﻿using Caching;
-using GeoCoordinatePortable;
 using Newtonsoft.Json;
-using PoGo.NecroBot.Logic.State;
+using PoGo.NecroBot.Logic.Model.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +10,7 @@ namespace PoGo.NecroBot.Logic.Service.Elevation
 {
     public class GoogleResponse
     {
+        public string status { get; set; }
         public List<GoogleElevationResults> results { get; set; }
     }
 
@@ -29,12 +29,17 @@ namespace PoGo.NecroBot.Logic.Service.Elevation
 
     public class GoogleElevationService : BaseElevationService
     {
-        public GoogleElevationService(ISession session, LRUCache<string, double> cache) : base(session, cache)
+        public GoogleElevationService(GlobalSettings settings, LRUCache<string, double> cache) : base(settings, cache)
         {
-            if (!string.IsNullOrEmpty(session.LogicSettings.GoogleApiKey))
-                _apiKey = session.LogicSettings.GoogleApiKey;
+            if (!string.IsNullOrEmpty(settings.GoogleWalkConfig.GoogleElevationAPIKey))
+                _apiKey = settings.GoogleWalkConfig.GoogleElevationAPIKey;
         }
-                        
+
+        public override string GetServiceId()
+        {
+            return "Google Elevation Service";
+        }
+
         public override double GetElevationFromWebService(double lat, double lng)
         {
             if (string.IsNullOrEmpty(_apiKey))
@@ -57,10 +62,11 @@ namespace PoGo.NecroBot.Logic.Service.Elevation
                     {
                         responseFromServer = reader.ReadToEnd();
                         GoogleResponse googleResponse = JsonConvert.DeserializeObject<GoogleResponse>(responseFromServer);
-                        if (googleResponse.results != null && 0 < googleResponse.results.Count)
-                        {
+
+                        if (googleResponse.status == "OK" && googleResponse.results != null && 0 < googleResponse.results.Count && googleResponse.results[0].elevation > -100)
                             return googleResponse.results[0].elevation;
-                        }
+
+                        // All error handling is handled inside of the ElevationService.
                     }
                 }
             }

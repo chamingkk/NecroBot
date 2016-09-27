@@ -1,5 +1,6 @@
 #region using directives
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using PoGo.NecroBot.Logic.Interfaces.Configuration;
@@ -87,7 +88,9 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public double ForceExcellentThrowOverIv => _settings.CustomCatchConfig.ForceExcellentThrowOverIv;
         public int ForceGreatThrowOverCp => _settings.CustomCatchConfig.ForceGreatThrowOverCp;
         public int ForceExcellentThrowOverCp => _settings.CustomCatchConfig.ForceExcellentThrowOverCp;
+        public int DelayBetweenPokemonUpgrade => _settings.PokemonConfig.DelayBetweenPokemonUpgrade;
         public int DelayBetweenPokemonCatch => _settings.PokemonConfig.DelayBetweenPokemonCatch;
+
         public int DelayBetweenPlayerActions => _settings.PlayerConfig.DelayBetweenPlayerActions;
         public int EvolveActionDelay => _settings.PlayerConfig.EvolveActionDelay;
         public int TransferActionDelay => _settings.PlayerConfig.TransferActionDelay;
@@ -137,12 +140,18 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public bool UseGoogleWalkCache => _settings.GoogleWalkConfig.Cache;
         public string GoogleApiKey => _settings.GoogleWalkConfig.GoogleAPIKey;
         public string GoogleHeuristic => _settings.GoogleWalkConfig.GoogleHeuristic;
+        public string GoogleElevationApiKey => _settings.GoogleWalkConfig.GoogleElevationAPIKey;
 
         public bool UseYoursWalk => _settings.YoursWalkConfig.UseYoursWalk;
         public string YoursWalkHeuristic => _settings.YoursWalkConfig.YoursWalkHeuristic;
 
-        public bool SnipeAtPokestops => _settings.SnipeConfig.SnipeAtPokestops;
+        public bool UseMapzenWalk => _settings.MapzenWalkConfig.UseMapzenWalk;
+        public string MapzenTurnByTurnApiKey => _settings.MapzenWalkConfig.MapzenTurnByTurnApiKey;
+        public string MapzenWalkHeuristic => _settings.MapzenWalkConfig.MapzenWalkHeuristic;
+        public string MapzenElevationApiKey => _settings.MapzenWalkConfig.MapzenElevationApiKey;
 
+        public bool SnipeAtPokestops => _settings.SnipeConfig.SnipeAtPokestops;
+        public bool ActivateMSniper => _settings.SnipeConfig.ActivateMSniper;
         public bool UseTelegramAPI => _settings.TelegramConfig.UseTelegramAPI;
         public string TelegramAPIKey => _settings.TelegramConfig.TelegramAPIKey;
         public string TelegramPassword => _settings.TelegramConfig.TelegramPassword;
@@ -177,26 +186,47 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public int ResumeTrack => _settings.LocationConfig.ResumeTrack;
         public int ResumeTrackSeg => _settings.LocationConfig.ResumeTrackSeg;
         public int ResumeTrackPt => _settings.LocationConfig.ResumeTrackPt;
+        public bool EnableHumanWalkingSnipe => _settings.HumanWalkSnipeConfig.Enable;
         public bool HumanWalkingSnipeDisplayList => _settings.HumanWalkSnipeConfig.DisplayPokemonList;
         public double HumanWalkingSnipeMaxDistance => _settings.HumanWalkSnipeConfig.MaxDistance;
         public double HumanWalkingSnipeMaxEstimateTime => _settings.HumanWalkSnipeConfig.MaxEstimateTime;
         public bool HumanWalkingSnipeTryCatchEmAll => _settings.HumanWalkSnipeConfig.TryCatchEmAll;
+        public int HumanWalkingSnipeCatchEmAllMinBalls => _settings.HumanWalkSnipeConfig.CatchEmAllMinBalls;
         public bool HumanWalkingSnipeCatchPokemonWhileWalking => _settings.HumanWalkSnipeConfig.CatchPokemonWhileWalking;
-        public double HumanWalkingSnipeSnipingScanOffset => _settings.HumanWalkSnipeConfig.SnipingScanOffset;
         public bool HumanWalkingSnipeSpinWhileWalking => _settings.HumanWalkSnipeConfig.SpinWhileWalking;
         public bool HumanWalkingSnipeAlwaysWalkBack => _settings.HumanWalkSnipeConfig.AlwaysWalkback;
-        public int HumanWalkingSnipeCatchEmAllMinBalls => _settings.HumanWalkSnipeConfig.CatchEmAllMinBalls;
-        public bool EnableHumanWalkingSnipe => _settings.HumanWalkSnipeConfig.Enable;
+        public double HumanWalkingSnipeWalkbackDistanceLimit => _settings.HumanWalkSnipeConfig.WalkbackDistanceLimit;
+        public double HumanWalkingSnipeSnipingScanOffset => _settings.HumanWalkSnipeConfig.SnipingScanOffset;
+        public bool HumanWalkingSnipeIncludeDefaultLocation => _settings.HumanWalkSnipeConfig.IncludeDefaultLocation;
+        public bool HumanWalkingSnipeUseSnipePokemonList => _settings.HumanWalkSnipeConfig.UseSnipePokemonList;
         public Dictionary<PokemonId, HumanWalkSnipeFilter> HumanWalkSnipeFilters => _settings.HumanWalkSnipeFilters;
-        public bool HumanWalkingSnipeUseFastPokemap => _settings.HumanWalkSnipeConfig.UseFastPokemap;
+        public bool HumanWalkingSnipeAllowSpeedUp => _settings.HumanWalkSnipeConfig.AllowSpeedUp;
+        public double HumanWalkingSnipeMaxSpeedUpSpeed => _settings.HumanWalkSnipeConfig.MaxSpeedUpSpeed;
+        public int HumanWalkingSnipeDelayTimeAtDestination => _settings.HumanWalkSnipeConfig.DelayTimeAtDestination;
         public bool HumanWalkingSnipeUsePokeRadar => _settings.HumanWalkSnipeConfig.UsePokeRadar;
         public bool HumanWalkingSnipeUseSkiplagged => _settings.HumanWalkSnipeConfig.UseSkiplagged;
-        public bool HumanWalkingSnipeUseSnipePokemonList => _settings.HumanWalkSnipeConfig.UseSnipePokemonList;
-        public double HumanWalkingSnipeWalkbackDistanceLimit => _settings.HumanWalkSnipeConfig.WalkbackDistanceLimit;
-        public bool HumanWalkingSnipeIncludeDefaultLocation => _settings.HumanWalkSnipeConfig.IncludeDefaultLocation;
-        public double HumanWalkingSnipeMaxSpeedUpSpeed => _settings.HumanWalkSnipeConfig.MaxSpeedUpSpeed;
-        public bool HumanWalkingSnipeAllowSpeedUp => _settings.HumanWalkSnipeConfig.AllowSpeedUp;
-        public int HumanWalkingSnipeDelayTimeAtDestination => _settings.HumanWalkSnipeConfig.DelayTimeAtDestination;
+        public bool HumanWalkingSnipeUsePokecrew => _settings.HumanWalkSnipeConfig.UsePokecrew;
+        public bool HumanWalkingSnipeUsePokesnipers => _settings.HumanWalkSnipeConfig.UsePokesnipers;
+        public bool HumanWalkingSnipeUsePokeZZ => _settings.HumanWalkSnipeConfig.UsePokeZZ;
+        public bool HumanWalkingSnipeUsePokeWatcher => _settings.HumanWalkSnipeConfig.UsePokeWatcher;
+        public bool HumanWalkingSnipeUseFastPokemap => _settings.HumanWalkSnipeConfig.UseFastPokemap;
         public bool HumanWalkingSnipeUsePogoLocationFeeder => _settings.HumanWalkSnipeConfig.UsePogoLocationFeeder;
+
+        public bool GymAllowed => _settings.GymConfig.Enable;
+        public bool GymPrioritizeOverPokestop => _settings.GymConfig.PrioritizeGymOverPokestop;
+        public TeamColor GymDefaultTeam =>(TeamColor)Enum.Parse(typeof(TeamColor), _settings.GymConfig.DefaultTeam);
+
+        public double GymMaxDistance => _settings.GymConfig.MaxDistance;
+        public int GymVisitTimeout => _settings.GymConfig.VisitTimeout;
+        public int GymMaxCPToDeploy => _settings.GymConfig.MaxCPToDeploy;
+        public int GymMaxLevelToDeploy => _settings.GymConfig.MaxLevelToDeploy;
+
+        public bool GymUseRandomPokemon => _settings.GymConfig.UseRandomPokemon;
+
+        public int GymNumberOfTopPokemonToBeExcluded => _settings.GymConfig.NumberOfTopPokemonToBeExcluded;
+
+        public bool DataSharingEnable => _settings.DataSharingConfig.EnableSyncData;
+
+        public string DataSharingDataUrl => _settings.DataSharingConfig.DataRecieverURL;
     }
 }

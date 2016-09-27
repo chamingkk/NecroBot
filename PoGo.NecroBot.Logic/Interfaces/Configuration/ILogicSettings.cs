@@ -61,6 +61,7 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         int ForceGreatThrowOverCp { get; }
         int ForceExcellentThrowOverCp { get; }
         int DelayBetweenPokemonCatch { get; }
+        int DelayBetweenPokemonUpgrade { get; }
         bool AutomaticallyLevelUpPokemon { get; }
         bool OnlyUpgradeFavorites { get; }
         bool UseLevelUpList { get; }
@@ -101,6 +102,7 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         string ProfileConfigPath { get; }
         string GeneralConfigPath { get; }
         bool SnipeAtPokestops { get; }
+        bool ActivateMSniper { get; }
         bool UseTelegramAPI { get; }
         string TelegramAPIKey { get; }
         string TelegramPassword { get; }
@@ -161,9 +163,15 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         bool UseGoogleWalkCache { get; }
         string GoogleApiKey { get; }
         string GoogleHeuristic { get; }
+        string GoogleElevationApiKey { get; }
 
         bool UseYoursWalk { get; }
         string YoursWalkHeuristic { get; }
+
+        bool UseMapzenWalk { get; }
+        string MapzenTurnByTurnApiKey { get; }
+        string MapzenWalkHeuristic { get; }
+        string MapzenElevationApiKey { get; }
 
         int ResumeTrack { get; }
         int ResumeTrackSeg { get; }
@@ -171,29 +179,46 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
 
         bool EnableHumanWalkingSnipe { get; }
         bool HumanWalkingSnipeDisplayList { get; }
-        bool HumanWalkingSnipeSpinWhileWalking { get; }
         double HumanWalkingSnipeMaxDistance { get; }
-        bool HumanWalkingSnipeAlwaysWalkBack { get; }
         double HumanWalkingSnipeMaxEstimateTime { get; }
         bool HumanWalkingSnipeTryCatchEmAll { get; }
         int HumanWalkingSnipeCatchEmAllMinBalls { get; }
         bool HumanWalkingSnipeCatchPokemonWhileWalking { get; }
-        double HumanWalkingSnipeSnipingScanOffset { get; }
+        bool HumanWalkingSnipeSpinWhileWalking { get; }
+        bool HumanWalkingSnipeAlwaysWalkBack { get; }
         double HumanWalkingSnipeWalkbackDistanceLimit { get; }
+        double HumanWalkingSnipeSnipingScanOffset { get; }
         bool HumanWalkingSnipeIncludeDefaultLocation { get; }
-        bool HumanWalkingSnipeUsePokeRadar { get; }
-        bool HumanWalkingSnipeUseSkiplagged { get; }
-        bool HumanWalkingSnipeUseFastPokemap { get; }
         bool HumanWalkingSnipeUseSnipePokemonList { get; }
         Dictionary<PokemonId, HumanWalkSnipeFilter> HumanWalkSnipeFilters { get; }
+        bool HumanWalkingSnipeAllowSpeedUp { get; }
         double HumanWalkingSnipeMaxSpeedUpSpeed { get; }
         int HumanWalkingSnipeDelayTimeAtDestination { get; }
-        bool HumanWalkingSnipeAllowSpeedUp { get; }
+        bool HumanWalkingSnipeUsePokeRadar { get; }
+        bool HumanWalkingSnipeUseSkiplagged { get; }
+        bool HumanWalkingSnipeUsePokecrew { get; }
+        bool HumanWalkingSnipeUsePokesnipers { get; }
+        bool HumanWalkingSnipeUsePokeZZ { get; }
+        bool HumanWalkingSnipeUsePokeWatcher { get; }
+        bool HumanWalkingSnipeUseFastPokemap { get; }
         bool HumanWalkingSnipeUsePogoLocationFeeder { get; }
 
         int EvolveActionDelay { get; }
         int TransferActionDelay { get; }
         int RecycleActionDelay { get; }
         int RenamePokemonActionDelay { get; }
+
+        bool GymAllowed { get; }
+        bool GymPrioritizeOverPokestop { get; }
+        TeamColor GymDefaultTeam { get; }
+        double GymMaxDistance { get; }
+        int GymMaxCPToDeploy {  get; }
+        int GymMaxLevelToDeploy { get; }
+        bool GymUseRandomPokemon { get; }
+        int GymVisitTimeout { get; }
+        int GymNumberOfTopPokemonToBeExcluded { get; }
+
+        bool DataSharingEnable { get; }
+        string DataSharingDataUrl { get; }
     }
 }

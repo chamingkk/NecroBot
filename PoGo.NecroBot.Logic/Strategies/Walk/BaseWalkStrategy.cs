@@ -10,6 +10,8 @@ using System.Threading;
 using PokemonGo.RocketAPI;
 using PoGo.NecroBot.Logic.Interfaces.Configuration;
 using PoGo.NecroBot.Logic.Event;
+using PoGo.NecroBot.Logic.Model;
+using PoGo.NecroBot.Logic.Event.Gym;
 
 namespace PoGo.NecroBot.Logic.Strategies.Walk
 {
@@ -20,18 +22,35 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
         protected double _currentWalkingSpeed = 0;
         protected const double SpeedDownTo = 10 / 3.6;
         protected double _minStepLengthInMeters = 1.3d;
-        
+
         protected readonly Random _randWalking = new Random();
         protected IWalkStrategy _fallbackStrategy;
 
         public event UpdatePositionDelegate UpdatePositionEvent;
-        public abstract Task<PlayerUpdateResponse> Walk(GeoCoordinate targetLocation, Func<Task<bool>> functionExecutedWhileWalking, ISession session, CancellationToken cancellationToken, double walkSpeed =0.0);
-
-        public static FortDetailsResponse FortInfo;
-
+        public abstract Task<PlayerUpdateResponse> Walk(IGeoLocation targetLocation, Func<Task> functionExecutedWhileWalking, ISession session, CancellationToken cancellationToken, double walkSpeed = 0.0);
+        public virtual string RouteName {get;}
         public BaseWalkStrategy(Client client)
         {
             _client = client;
+        }
+        public void OnStartWalking(ISession session, IGeoLocation desination, double calculatedDistance = 0.0)
+        {
+            var distance = calculatedDistance;
+            if (distance == 0)
+            {
+                distance = this.CalculateDistance(session.Client.CurrentLatitude, session.Client.CurrentLongitude, desination.Latitude, desination.Longitude);
+            }
+
+            if(desination is FortLocation)
+            {
+                var fortLocation = desination as FortLocation;
+                session.EventDispatcher.Send(new FortTargetEvent { Name = desination.Name, Distance = distance, Route = this.RouteName, Type = fortLocation.FortData.Type });
+            }
+        }
+
+        internal void DoUpdatePositionEvent(double latitude, double longitude)
+        {
+            UpdatePositionEvent?.Invoke(latitude, longitude);
         }
 
         /// <summary>
@@ -51,20 +70,18 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
 
             return LocationUtils.CreateWaypoint(geo, randomDistance, randomBearingDegrees);
         }
-
-        public Task<PlayerUpdateResponse> RedirectToNextFallbackStrategy(ILogicSettings logicSettings, GeoCoordinate targetLocation, Func<Task<bool>> functionExecutedWhileWalking, ISession session, CancellationToken cancellationToken)
+        
+        public Task<PlayerUpdateResponse> RedirectToNextFallbackStrategy(ILogicSettings logicSettings, IGeoLocation targetLocation, Func<Task> functionExecutedWhileWalking, ISession session, CancellationToken cancellationToken, double walkSpeed=0.0)
         {
-            if (this is GoogleStrategy)
-                if (logicSettings.UseYoursWalk)
-                    return new YoursNavigationStrategy(_client).Walk(targetLocation, functionExecutedWhileWalking, session, cancellationToken);
+            // If we need to fall-back, then blacklist current strategy for 1 hour.
+            session.Navigation.BlacklistStrategy(this.GetType());
 
-            var distance = LocationUtils.CalculateDistanceInMeters(session.Client.CurrentLatitude,
-                        session.Client.CurrentLongitude, FortInfo.Latitude, FortInfo.Longitude);
-            session.EventDispatcher.Send(new FortTargetEvent { Name = FortInfo.Name, Distance = distance, Route = "NecroBot" });
-            return new HumanStrategy(_client).Walk(targetLocation, functionExecutedWhileWalking, session, cancellationToken);
+            IWalkStrategy nextStrategy = session.Navigation.GetStrategy(logicSettings);
+           
+            return nextStrategy.Walk(targetLocation, functionExecutedWhileWalking, session, cancellationToken);
         }
 
-        public async Task<PlayerUpdateResponse> DoWalk(List<GeoCoordinate> points, ISession session, Func<Task<bool>> functionExecutedWhileWalking, GeoCoordinate sourceLocation, GeoCoordinate targetLocation, CancellationToken cancellationToken)
+        public async Task<PlayerUpdateResponse> DoWalk(List<GeoCoordinate> points, ISession session, Func<Task> functionExecutedWhileWalking, GeoCoordinate sourceLocation, GeoCoordinate targetLocation, CancellationToken cancellationToken, double walkSpeed = 0.0)
         {
             PlayerUpdateResponse result = null;
             var currentLocation = new GeoCoordinate(_client.CurrentLatitude, _client.CurrentLongitude, _client.CurrentAltitude);
@@ -100,10 +117,10 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                 currentLocation = new GeoCoordinate(_client.CurrentLatitude, _client.CurrentLongitude);
                 if (_currentWalkingSpeed <= 0)
                     _currentWalkingSpeed = session.LogicSettings.WalkingSpeedInKilometerPerHour;
-                if (session.LogicSettings.UseWalkingSpeedVariant)
+                if (session.LogicSettings.UseWalkingSpeedVariant && walkSpeed == 0)
                     _currentWalkingSpeed = session.Navigation.VariantRandom(session, _currentWalkingSpeed);
 
-                var speedInMetersPerSecond = _currentWalkingSpeed / 3.6;
+                var speedInMetersPerSecond = (walkSpeed > 0 ? walkSpeed : _currentWalkingSpeed) / 3.6;
                 var nextStepBearing = LocationUtils.DegreeBearing(currentLocation, nextStep);
                 //particular steps are limited by minimal length, first step is calculated from the original speed per second (distance in 1s)
                 var nextStepDistance = Math.Max(RandomizeStepLength(_minStepLengthInMeters), speedInMetersPerSecond);
@@ -113,7 +130,7 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
 
                 var previousLocation = currentLocation; //store the current location for comparison and correction purposes
                 var requestSendDateTime = DateTime.Now;
-                result = await LocationUtils.UpdatePlayerLocationWithAltitude(session, waypoint);
+                result = await LocationUtils.UpdatePlayerLocationWithAltitude(session, waypoint, (float)speedInMetersPerSecond);
 
                 var realDistanceToTarget = LocationUtils.CalculateDistanceInMeters(currentLocation, targetLocation);
                 if (realDistanceToTarget < 30)
@@ -143,13 +160,16 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                         if (speedInMetersPerSecond > SpeedDownTo)
                             speedInMetersPerSecond = SpeedDownTo;
 
-                    if (session.LogicSettings.UseWalkingSpeedVariant)
+                    if (session.LogicSettings.UseWalkingSpeedVariant && walkSpeed ==0)
                     {
                         _currentWalkingSpeed = session.Navigation.VariantRandom(session, _currentWalkingSpeed);
                         speedInMetersPerSecond = _currentWalkingSpeed / 3.6;
                     }
                     speedInMetersPerSecond += speedRaise;
-
+                   if(walkSpeed > 0)
+                    {
+                        speedInMetersPerSecond = walkSpeed / 3.6;
+                    }
                     nextStepBearing = LocationUtils.DegreeBearing(currentLocation, nextStep);
 
                     //setting next step distance is limited by the target and the next waypoint distance (we don't want to miss them)
@@ -163,7 +183,7 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
 
                     previousLocation = currentLocation; //store the current location for comparison and correction purposes
                     requestSendDateTime = DateTime.Now;
-                    result = await LocationUtils.UpdatePlayerLocationWithAltitude(session, waypoint);
+                    result = await LocationUtils.UpdatePlayerLocationWithAltitude(session, waypoint, (float)speedInMetersPerSecond);
 
                     UpdatePositionEvent?.Invoke(waypoint.Latitude, waypoint.Longitude);
 

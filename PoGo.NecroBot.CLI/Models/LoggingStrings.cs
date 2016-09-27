@@ -40,7 +40,9 @@ namespace PoGo.NecroBot.CLI.Models
         internal static string New;
 
         internal static string SoftBan;
+        internal static string Gym;
 
+        internal static string Service;
         internal static void SetStrings(ISession session)
         {
             Attention =
@@ -106,6 +108,14 @@ namespace PoGo.NecroBot.CLI.Models
             SoftBan =
                 session?.Translation.GetTranslation(
                     TranslationString.LogEntrySoftBan) ?? "SOFTBAN";
+
+            Gym =
+               session?.Translation.GetTranslation(
+                   TranslationString.LogEntryGym) ?? "GYM";
+
+            Service =
+                session?.Translation.GetTranslation(
+                    TranslationString.LogEntryService) ?? "SERVICE";
         }
     }
 }

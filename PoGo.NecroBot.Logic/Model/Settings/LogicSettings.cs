@@ -1,8 +1,7 @@
-
 #region using directives
 
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using PoGo.NecroBot.Logic.Interfaces.Configuration;
 using POGOProtos.Enums;
 using POGOProtos.Inventory.Item;
@@ -90,7 +89,15 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public int ForceExcellentThrowOverCp => _settings.CustomCatchConfig.ForceExcellentThrowOverCp;
         public int DelayBetweenPokemonCatch => _settings.PokemonConfig.DelayBetweenPokemonCatch;
         public int DelayBetweenPlayerActions => _settings.PlayerConfig.DelayBetweenPlayerActions;
+        public int EvolveActionDelay => _settings.PlayerConfig.EvolveActionDelay;
+        public int TransferActionDelay => _settings.PlayerConfig.TransferActionDelay;
+        public int RecycleActionDelay => _settings.PlayerConfig.RecycleActionDelay;
+        public int RenamePokemonActionDelay => _settings.PlayerConfig.RenamePokemonActionDelay;
         public bool UseNearActionRandom => _settings.PlayerConfig.UseNearActionRandom;
+        public bool AutoCompleteTutorial => _settings.PlayerConfig.AutoCompleteTutorial;
+        public string DesiredNickname => _settings.PlayerConfig.DesiredNickname;
+        public string DesiredGender => _settings.PlayerConfig.DesiredGender;
+        public string DesiredStarter => _settings.PlayerConfig.DesiredStarter;
         public bool UsePokemonToNotCatchFilter => _settings.PokemonConfig.UsePokemonToNotCatchFilter;
         public bool UsePokemonSniperFilterOnly => _settings.PokemonConfig.UsePokemonSniperFilterOnly;
         public int KeepMinDuplicatePokemon => _settings.PokemonConfig.KeepMinDuplicatePokemon;
@@ -114,7 +121,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public bool VerboseRecycling => _settings.RecycleConfig.VerboseRecycling;
         public double RecycleInventoryAtUsagePercentage => _settings.RecycleConfig.RecycleInventoryAtUsagePercentage;
         public double EvolveKeptPokemonsAtStorageUsagePercentage => _settings.PokemonConfig.EvolveKeptPokemonsAtStorageUsagePercentage;
-        public ICollection<KeyValuePair<ItemId, int>> ItemRecycleFilter => _settings.ItemRecycleFilter;
+        public ICollection<KeyValuePair<ItemId, int>> ItemRecycleFilter => _settings.ItemRecycleFilter.Select(itemRecycleFilter => new KeyValuePair<ItemId, int>(itemRecycleFilter.Key, itemRecycleFilter.Value)).ToList();
         public ICollection<PokemonId> PokemonsToEvolve => _settings.PokemonsToEvolve;
         public ICollection<PokemonId> PokemonsToLevelUp => _settings.PokemonsToLevelUp;
         public ICollection<PokemonId> PokemonsNotToTransfer => _settings.PokemonsNotToTransfer;
@@ -122,6 +129,8 @@ namespace PoGo.NecroBot.Logic.Model.Settings
 
         public ICollection<PokemonId> PokemonToUseMasterball => _settings.PokemonToUseMasterball;
         public Dictionary<PokemonId, TransferFilter> PokemonsTransferFilter => _settings.PokemonsTransferFilter;
+        public Dictionary<PokemonId, UpgradeFilter> PokemonUpgradeFilters => _settings.PokemonUpgradeFilters;
+
         public bool StartupWelcomeDelay => _settings.ConsoleConfig.StartupWelcomeDelay;
         public bool UseGoogleWalk => _settings.GoogleWalkConfig.UseGoogleWalk;
         public double DefaultStepLength => _settings.GoogleWalkConfig.DefaultStepLength;
@@ -157,7 +166,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public bool SnipePokemonNotInPokedex => _settings.SnipeConfig.SnipePokemonNotInPokedex;
         public bool RandomizeRecycle => _settings.RecycleConfig.RandomizeRecycle;
         public int RandomRecycleValue => _settings.RecycleConfig.RandomRecycleValue;
-        public bool DelayBetweenRecycleActions => _settings.RecycleConfig.DelayBetweenRecycleActions;
+        public int MaxPokeballsToKeep => _settings.RecycleConfig.MaxPokeballsToKeep;
         public int TotalAmountOfPokeballsToKeep => _settings.RecycleConfig.TotalAmountOfPokeballsToKeep;
         public int TotalAmountOfPotionsToKeep => _settings.RecycleConfig.TotalAmountOfPotionsToKeep;
         public int TotalAmountOfRevivesToKeep => _settings.RecycleConfig.TotalAmountOfRevivesToKeep;
@@ -168,7 +177,6 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public int ResumeTrack => _settings.LocationConfig.ResumeTrack;
         public int ResumeTrackSeg => _settings.LocationConfig.ResumeTrackSeg;
         public int ResumeTrackPt => _settings.LocationConfig.ResumeTrackPt;
-
         public bool HumanWalkingSnipeDisplayList => _settings.HumanWalkSnipeConfig.DisplayPokemonList;
         public double HumanWalkingSnipeMaxDistance => _settings.HumanWalkSnipeConfig.MaxDistance;
         public double HumanWalkingSnipeMaxEstimateTime => _settings.HumanWalkSnipeConfig.MaxEstimateTime;
@@ -180,6 +188,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public int HumanWalkingSnipeCatchEmAllMinBalls => _settings.HumanWalkSnipeConfig.CatchEmAllMinBalls;
         public bool EnableHumanWalkingSnipe => _settings.HumanWalkSnipeConfig.Enable;
         public Dictionary<PokemonId, HumanWalkSnipeFilter> HumanWalkSnipeFilters => _settings.HumanWalkSnipeFilters;
+        public bool HumanWalkingSnipeUseFastPokemap => _settings.HumanWalkSnipeConfig.UseFastPokemap;
         public bool HumanWalkingSnipeUsePokeRadar => _settings.HumanWalkSnipeConfig.UsePokeRadar;
         public bool HumanWalkingSnipeUseSkiplagged => _settings.HumanWalkSnipeConfig.UseSkiplagged;
         public bool HumanWalkingSnipeUseSnipePokemonList => _settings.HumanWalkSnipeConfig.UseSnipePokemonList;
@@ -188,5 +197,6 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public double HumanWalkingSnipeMaxSpeedUpSpeed => _settings.HumanWalkSnipeConfig.MaxSpeedUpSpeed;
         public bool HumanWalkingSnipeAllowSpeedUp => _settings.HumanWalkSnipeConfig.AllowSpeedUp;
         public int HumanWalkingSnipeDelayTimeAtDestination => _settings.HumanWalkSnipeConfig.DelayTimeAtDestination;
+        public bool HumanWalkingSnipeUsePogoLocationFeeder => _settings.HumanWalkSnipeConfig.UsePogoLocationFeeder;
     }
 }

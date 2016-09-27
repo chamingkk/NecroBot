@@ -122,8 +122,9 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         bool SnipePokemonNotInPokedex { get; }
         bool RandomizeRecycle { get; }
         int RandomRecycleValue { get; }
-        bool DelayBetweenRecycleActions { get; }
         int TotalAmountOfPokeballsToKeep { get; }
+        int MaxPokeballsToKeep { get; }
+
         int TotalAmountOfPotionsToKeep { get; }
         int TotalAmountOfRevivesToKeep { get; }
         int TotalAmountOfBerriesToKeep { get; }
@@ -135,6 +136,10 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         bool UsePokeStopLimit { get; }
         bool UseCatchLimit { get; }
         bool UseNearActionRandom { get; }
+        bool AutoCompleteTutorial { get; }
+        string DesiredNickname { get; }
+        string DesiredGender { get; }
+        string DesiredStarter { get; }
         ICollection<KeyValuePair<ItemId, int>> ItemRecycleFilter { get; }
 
         ICollection<PokemonId> PokemonsToEvolve { get; }
@@ -147,6 +152,7 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         ICollection<PokemonId> PokemonToUseMasterball { get; }
 
         Dictionary<PokemonId, TransferFilter> PokemonsTransferFilter { get; }
+        Dictionary<PokemonId, UpgradeFilter> PokemonUpgradeFilters { get; }
         SnipeSettings PokemonToSnipe { get; }
 
         bool StartupWelcomeDelay { get; }
@@ -177,10 +183,17 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         bool HumanWalkingSnipeIncludeDefaultLocation { get; }
         bool HumanWalkingSnipeUsePokeRadar { get; }
         bool HumanWalkingSnipeUseSkiplagged { get; }
+        bool HumanWalkingSnipeUseFastPokemap { get; }
         bool HumanWalkingSnipeUseSnipePokemonList { get; }
         Dictionary<PokemonId, HumanWalkSnipeFilter> HumanWalkSnipeFilters { get; }
         double HumanWalkingSnipeMaxSpeedUpSpeed { get; }
         int HumanWalkingSnipeDelayTimeAtDestination { get; }
         bool HumanWalkingSnipeAllowSpeedUp { get; }
+        bool HumanWalkingSnipeUsePogoLocationFeeder { get; }
+
+        int EvolveActionDelay { get; }
+        int TransferActionDelay { get; }
+        int RecycleActionDelay { get; }
+        int RenamePokemonActionDelay { get; }
     }
 }
